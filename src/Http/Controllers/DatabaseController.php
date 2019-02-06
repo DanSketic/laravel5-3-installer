@@ -7,6 +7,7 @@ use AppController;
 use Bestmomo\Installer\Repositories\EnvironmentRepository;
 use Artisan;
 use Exception;
+use DB;
 
 class DatabaseController extends AppController
 {
@@ -22,7 +23,11 @@ class DatabaseController extends AppController
         $username = env('DB_USERNAME');
         $password = env('DB_PASSWORD');
 
-        return view('vendor.installer.database', compact('host', 'database', 'username', 'password'));
+        if(is_writable(base_path('.env')) && is_writable(base_path('config/app.php'))) {
+          return view('vendor.installer.database', compact('host', 'database', 'username', 'password'));
+        }else{
+          return view('vendor.installer.env-error', ['env' => is_writable(base_path('.env')), 'app' => is_writable(base_path('config/app.php')) ]);
+        }
     }
 
     /**
@@ -35,7 +40,7 @@ class DatabaseController extends AppController
     public function store(Request $request, EnvironmentRepository $environmentRepository)
     {
         // Set config for migrations and seeds
-        $connection = config('database.default');
+        $connection = 'install_check';
         config([
             'database.connections.'.$connection.'.host' => $request->host,
             'database.connections.'.$connection.'.database' => $request->dbname,
@@ -43,16 +48,36 @@ class DatabaseController extends AppController
             'database.connections.'.$connection.'.username' => $request->username,
         ]);
 
-        // Migrations and seeds
+
+        // Test database connection
         try {
-            Artisan::call('migrate');
-            Artisan::call('db:seed');
-        } catch(Exception $e) {
+            DB::connection($connection)->table(DB::raw('DUAL'))->first([DB::raw(1)]);
+        } catch (\Exception $e) {
             return view('vendor.installer.database-error');
         }
 
         // Update .env file
         $environmentRepository->SetDatabaseSetting($request);
+
+        // Start migration
+        return redirect('install/database/migrate');
+
+    }
+
+    /**
+     * Install database
+     *
+     * @return \Illuminate\View\View
+     */
+    public function install()
+    {
+        // Migrations and seeds
+        try {
+            @Artisan::call('migrate');
+            @Artisan::call('db:seed');
+        } catch(Exception $e) {
+            return view('vendor.installer.database-error');
+        }
 
         if(config('installer.administrator')) {
             return redirect('install/register');

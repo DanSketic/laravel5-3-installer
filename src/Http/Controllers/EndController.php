@@ -21,8 +21,12 @@ class EndController extends AppController
             'Bestmomo\Installer\InstallerServiceProvider::class,', '', file_get_contents($path)
         ));
 
+        file_put_contents($path, str_replace(
+            '// Backpack\Settings\SettingsServiceProvider::class,', 'Backpack\Settings\SettingsServiceProvider::class,', file_get_contents($path)
+        ));
+
         // Change key in .env
-        Artisan::call('key:generate');
+        @Artisan::call('key:generate');
 
         return view('vendor.installer.end');
     }

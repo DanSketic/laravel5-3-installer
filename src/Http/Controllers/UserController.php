@@ -2,12 +2,31 @@
 
 namespace Bestmomo\Installer\Http\Controllers;
 
-use RegisterController;
-use Illuminate\Http\Request;
-use Illuminate\Foundation\Auth\AuthenticatesAndRegistersUsers;
+use App\Http\Controllers\Controller;
+use App\Events\Frontend\Auth\UserRegistered;
+use Illuminate\Foundation\Auth\RegistersUsers;
+use App\Http\Requests\Frontend\Auth\RegisterRequest;
+use App\Repositories\UserRepository;
 
-class UserController extends RegisterController
+class UserController extends Controller
 {
+
+    use RegistersUsers;
+
+    /**
+     * @var UserRepository
+     */
+    protected $user;
+
+    /**
+     * RegisterController constructor.
+     * @param UserRepository $user
+     */
+    public function __construct(UserRepository $user)
+    {
+      $this->user = $user;
+    }
+
     /**
      * Show form.
      *
@@ -24,38 +43,13 @@ class UserController extends RegisterController
      * Manage form submission.
      *
      * @param  Illuminate\Http\Request $request
-     * @return 
+     * @return
      */
-    public function storeUser(Request $request)
+    public function storeUser(RegisterRequest $request)
     {
-        $request->merge(['password_confirmation' => $request->password]);
 
-        // Form validation with form request or validator method
-        $validator = config('installer.validator');
-        if($validator !== null) {
-            app($validator);
-        } else {
-            $validator = $this->validator($request->all());
-            if($validator->fails()) {
-                return back()->withErrors($validator)->withInput();
-            }
-        }
-
-        // Administrator creation
-        $class = config('installer.creator.class');
-        if($class !== null) {
-            $class = app($class);
-            $method = config('installer.creator.method');
-            $user = $class->{$method}($request->all());
-        } else {
-            $user = $this->create($request->all());
-        }
-
-        if(method_exists($this, 'userAddValues')) {
-            return $this->userAddValues($user);
-        }
-
-        return redirect('install/end');
+      $this->user->createInstall($request->all());
+      return redirect('install/end');
     }
 
 }
